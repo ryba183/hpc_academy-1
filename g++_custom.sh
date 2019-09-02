@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-g++ --pedantic -Wall -Wextra "${1}" -o "${1%.*}"
+input="${1}"
+shift 1
+g++ --pedantic -Wall -Wextra "${input}" -o "${input%.*}" "${@}"
