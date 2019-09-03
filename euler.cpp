@@ -71,7 +71,7 @@ void ProcessArgs(int argc, char** argv)
     }
 }
 
-double dydt(double y) {
+double dydt(double y, double t) {
     return sqrt(y);
 }
 
@@ -88,7 +88,7 @@ double euler(double y0, double dt, double T, std::ostream& out = std::cout) {
             dt = T - t;
         }
         // Evalute for t + dt
-        y = y + dt*dydt(y);
+        y = y + dt*dydt(y, t);
         t += dt;
         out << t << "\t" << y << std::endl;
     }
