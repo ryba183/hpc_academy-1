@@ -3,6 +3,7 @@
 #include <complex>
 #include <array>
 #include <vector>
+#include <functional>
 
 double get_epsilon(double density, double pressure, double gamma = 1.4) {
   return pressure/((gamma - 1)*density);
@@ -10,10 +11,6 @@ double get_epsilon(double density, double pressure, double gamma = 1.4) {
 
 double get_energy(double epsilon, double density, double velocity) {
   return (density * epsilon) + (0.5*density*velocity*velocity);
-}
-
-double f_ro(double density, double velocity) {
-  return density * velocity;
 }
 
 double f_mass (double ro, double v, double p) {
@@ -55,7 +52,43 @@ double get_amax (std::vector<std::array<double, 4>>& q) {
 double delta_t (double amax, double dx, double CFL = 0.9) {
   return CFL*(dx/amax);
 }
-  
+
+double f_density(double density, double velocity) {
+  return density * velocity;
+}
+
+double q_ihalf_density(double density_i, double density_i1, 
+                       double velocity_i, double velocity_i1, 
+                       double dx, double dt) {
+  return 0.5 * (density_i + density_i1) 
+         + (0.5 * (dt/dx) * (f_density(density_i, velocity_i) 
+                             - f_density(density_i1, velocity_i1)));
+}
+
+
+// Compute qhalf for pressure and velocity
+
+// Compute all fluxes with qi, qhalf and qi1
+
+
+
+double force_flux(std::array<double, 4> q_i , 
+                  std::array<double, 4> q_i1, 
+                  double dx, double dt) {
+  double density_i = q_i[0];
+  double velocity_i = q_i[1];
+  double energy_i = q_i[2];
+  double pressure_i = q_i[3];
+  double density_i1 = q_i1[0];
+  double velocity_i1 = q_i1[1];
+  double energy_i1 = q_i[2];
+  double pressure_i1 = q_i[3];
+
+  double density_ihalf = q_ihalf_density(density_i, density_i1,
+                                         velocity_i, velocity_i1,
+                                         dx, dt);
+}
+
 void initiaseData(std::vector<std::array<double, 4>>& q,
                   double densityL, double velocityL, double pressureL,
                   double densityR, double velocityR, double pressureR) {
