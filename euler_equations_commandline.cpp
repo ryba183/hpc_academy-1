@@ -151,28 +151,28 @@ double get_dt(double amax, double dx, double CFL = 0.9) {
   return CFL*(dx/amax);
 }
 
-double f_density(std::array<double, 3> q) {
+double f_density(std::array<double, 3>& q) {
   double density = q[0];
   double velocity = get_velocity(q);
   return density * velocity;
 }
 
-double f_momentum(std::array<double, 3> q) {
+double f_momentum(std::array<double, 3>& q) {
     double density = q[0];
     double velocity = get_velocity(q);
     double pressure = get_pressure(q);
     return (density*velocity*velocity) + pressure;
 }
 
-double f_energy(std::array<double, 3> q) {
+double f_energy(std::array<double, 3>& q) {
   double energy = q[2];
   double velocity = get_velocity(q);
   double pressure = get_pressure(q);
   return (energy + pressure)*velocity;
 }
 
-std::array<double, 3> get_q_ihalf(std::array<double, 3> qi , 
-                                  std::array<double, 3> q_i1, 
+std::array<double, 3> get_q_ihalf(std::array<double, 3>& qi , 
+                                  std::array<double, 3>& q_i1, 
                                   double dx, double dt) {
                           
     // Declare output vector
@@ -196,7 +196,7 @@ std::array<double, 3> get_q_ihalf(std::array<double, 3> qi ,
     return q_out;
 }
 
-std::array<double, 3>  get_flux_RI(std::array<double, 3> q) {
+std::array<double, 3>  get_flux_RI(std::array<double, 3>& q) {
     // Declare output vector
     std::array<double, 3> flux_RI;
   
@@ -207,8 +207,8 @@ std::array<double, 3>  get_flux_RI(std::array<double, 3> q) {
     return flux_RI;
 }
 
-std::array<double, 3> get_flux_LF(std::array<double, 3> qi , 
-                                  std::array<double, 3> q_i1, 
+std::array<double, 3> get_flux_LF(std::array<double, 3>& qi , 
+                                  std::array<double, 3>& q_i1, 
                                   double dx, double dt) {
                           
     // Declare output vector
@@ -224,8 +224,8 @@ std::array<double, 3> get_flux_LF(std::array<double, 3> qi ,
     return flux_LF;
 }
 
-std::array<double, 3> get_force(std::array<double, 3> flux_LF, 
-                                std::array<double, 3> flux_RI) {
+std::array<double, 3> get_force(std::array<double, 3>& flux_LF, 
+                                std::array<double, 3>& flux_RI) {
                           
     // Declare output vector
     std::array<double, 3> force_flux;
