@@ -5,6 +5,99 @@
 #include <vector>
 #include <functional>
 #include <algorithm>
+#include <iomanip>
+#include <getopt.h>
+#include <fstream>
+
+double ncells = 1000;
+double maxtime = 0.15;
+double densityL = 1;
+double densityR = 1;
+double velocityL = -2;
+double velocityR = 2;
+double pressureL = 0.4;
+double pressureR = 0.4;
+std::string outPath = "-";
+
+void PrintHelp()
+{
+    std::cout <<
+        "Parameter settings:\n"
+        "   -n, --steps           Set number of steps across domain\n"
+        "   -t, --time            Set time to simulate until\n"
+        "   -d, --density_left    Set density on left side of domain\n"
+        "   -D, --density_right   Set density on right side of domain\n"
+        "   -v, --velocity_left   Set velocity on left side of domain\n"
+        "   -V, --velocity_right  Set velocity on right side of domain\n"
+        "   -p, --pressure_left   Set pressure on left side of domain\n"
+        "   -P, --pressure_right  Set pressure on right side of domain\n"
+        "   -o, --outfile         File to write solution\n"
+        "   -h, --help            Show help\n";
+    exit(1);
+}
+
+// https://gist.github.com/ashwin/d88184923c7161d368a9
+void ProcessArgs(int argc, char** argv)
+{
+    const char* const short_opts = "n:t:d:D:v:V:p:P:o:h";
+    const option long_opts[] = {
+        {"steps", required_argument, nullptr, 'n'},
+        {"time", required_argument, nullptr, 't'},
+        {"density_left", required_argument, nullptr, 'd'},
+        {"density_right", required_argument, nullptr, 'D'},
+        {"velocity_left", required_argument, nullptr, 'v'},
+        {"velocity_right", required_argument, nullptr, 'V'},
+        {"pressure_left", required_argument, nullptr, 'p'},
+        {"pressure_right", required_argument, nullptr, 'P'},
+        {"outfile", required_argument, nullptr, 'o'},
+        {"help", no_argument, nullptr, 'h'},
+        {nullptr, no_argument, nullptr, 0}
+    };
+
+    while (true)
+    {
+        const auto opt = getopt_long(argc, argv, short_opts, long_opts, nullptr);
+
+        if (-1 == opt)
+            break;
+
+        switch (opt)
+        {
+        case 'n':
+            ncells = std::stoi(optarg);
+            break;
+        case 't':
+           maxtime = std::stof(optarg);
+           break;
+        case 'd':
+            densityL = std::stof(optarg);
+            break;
+        case 'D':
+            densityR = std::stof(optarg);
+            break;
+        case 'v':
+            velocityL = std::stof(optarg);
+            break;
+        case 'V':
+            velocityR = std::stof(optarg);
+            break;
+        case 'p':
+            pressureL = std::stof(optarg);
+            break;
+        case 'P':
+            pressureR = std::stof(optarg);
+            break;
+        case 'o':
+            outPath = std::string(optarg);
+            break;
+        case 'h': // -h or --help
+        case '?': // Unrecognized option
+        default:
+            PrintHelp();
+            break;
+        }
+    }
+}
 
 double get_energy(double pressure, double density, 
                   double velocity, double gamma = 1.4) {
@@ -172,14 +265,13 @@ void initiaseData(std::vector<std::array<double, 3>>& q,
 
 int main(int argc, char* argv[])
 {
-  double densityL = 1;
-  double velocityL = -2;
-  double pressureL = 0.4;
-  double densityR = 1;
-  double velocityR = 2;
-  double pressureR = 0.4;
-  double time = 0.15;
-  double ncells = 1000;
+  ProcessArgs(argc, argv);
+  std::ofstream outFile;
+  if (outPath != "-") {
+    outFile.open(outPath, std::ios::out);
+  } 
+  std::ostream& out = (outPath != "-" ? outFile : std::cout);
+    
   double dx = delta_x(ncells);
   std::vector<std::array<double, 3>> q(ncells);
   std::vector<std::array<double, 3>> q_next(ncells);
@@ -187,7 +279,7 @@ int main(int argc, char* argv[])
                densityR, velocityR, pressureR);
   double t = 0;
   double amax, dt;
-  while (t < time) {
+  while (t < maxtime) {
     
     amax = get_amax(q);
     dt = get_dt(amax, dx);
@@ -233,10 +325,10 @@ int main(int argc, char* argv[])
     
     int size = q.size();
     for (int i = 0; i < size; i++) {
-      std::cout << q[i][0] << "\t" 
-                << get_velocity(q[i]) << "\t" 
-                << get_pressure(q[i]) << "\t" 
-                << get_internal_energy(q[i]) << std::endl;
+      out << q[i][0] << "\t" 
+          << get_velocity(q[i]) << "\t" 
+          << get_pressure(q[i]) << "\t" 
+          << get_internal_energy(q[i]) << std::endl;
     }
     return 0;
 }
