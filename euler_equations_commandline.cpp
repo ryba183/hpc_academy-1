@@ -120,8 +120,8 @@ double get_pressure(std::map<std::string, double>& q, double gamma = 1.4) {;
     return (gamma - 1) * (q["density"] * internal_energy);
 }
 
-double delta_x(double ncells) {
-  return 1/ncells;
+double get_dx(double ncells, double domain_start = 0, double domain_end = 1) {
+  return (domain_end - domain_start)/ncells;
 }
 
 double speed_of_sound(std::map<std::string, double>& q, double gamma = 1.4) {
@@ -244,73 +244,86 @@ std::map<std::string, double> get_q_n1(std::map<std::string, double>& qi,
     return q_nplus1;
 }
 
-//std::map<std::string, std::map<std::string, double>> get_q_isurround(std::vector<std::map<std::string, double>>& q, int i) {
-    
+std::map<std::string, std::map<std::string, double>> get_q_isurround(std::vector<std::map<std::string, double>>& q, int i) {
+    // Declare output map
+    std::map<std::string, std::map<std::string, double>> q_isurround;
+
+    int size = q.size();
+    if (i == 0) {
+        q_isurround["iless1"] = q[i];
+    } else {
+        q_isurround["iless1"] = q[i-1];   
+    }
+    if (i == size - 1) {
+        q_isurround["iplus1"] = q[size - 1];
+    } else {
+        q_isurround["iplus1"] = q[i+1];   
+    }
+    return q_isurround;
+}
 
 void initiaseData(std::vector<std::map<std::string, double>>& q,
-                  double densityL, double velocityL, double pressureL,
-                  double densityR, double velocityR, double pressureR) {
+    double densityL, double velocityL, double pressureL,
+    double densityR, double velocityR, double pressureR) {
   
-  int size = q.size();
-  double energy, density, velocity, pressure, momentum;
-  for (int i = 0; i < size; i++) {
-    if (i < (size/2)) {
-      density = densityL;
-      velocity = velocityL;
-      pressure = pressureL;
+    unsigned int size = q.size();
+    double energy, density, velocity, pressure, momentum;
+    for (unsigned int i = 0; i < size; i++) {
+        if (i < (size/2)) {
+            density = densityL;
+            velocity = velocityL;
+            pressure = pressureL;
+        }
+        else {
+            density = densityR;
+            velocity = velocityR;
+            pressure = pressureR;
+        }
+        energy = get_energy(pressure, density, velocity);
+        momentum = density * velocity;
+        q[i]["density"] = density;
+        q[i]["momentum"] = momentum;
+        q[i]["energy"] = energy;    
     }
-    else {
-      density = densityR;
-      velocity = velocityR;
-      pressure = pressureR;
-    }
-    energy = get_energy(pressure, density, velocity);
-    momentum = density * velocity;
-    q[i]["density"] = density;
-    q[i]["momentum"] = momentum;
-    q[i]["energy"] = energy;    
-  }
 }
       
 
 int main(int argc, char* argv[]) {
+    
+    // Extract command line argumenets
     ProcessArgs(argc, argv);
     std::ofstream outFile;
+    
+    // Set output to file path or stdout (default)
     if (outPath != "-") {
         outFile.open(outPath, std::ios::out);
     } 
     std::ostream& out = (outPath != "-" ? outFile : std::cout);
     
-    double dx = delta_x(ncells);
+    // Initialise data
     std::vector<std::map<std::string, double>> q(ncells);
-    std::vector<std::map<std::string, double>> q_next(ncells);
     initiaseData(q, densityL, velocityL, pressureL,
         densityR, velocityR, pressureR);
-    double t = 0;
-    double amax, dt;
-    while (t < maxtime) {
     
-        amax = get_amax(q);
-        dt = get_dt(amax, dx);
-        int size = q.size();
-        for (int i = 0; i < size; i++) {
-            
-            
-            std::map<std::string, std::map<std::string, double>> surroundings;
-
-            std::map<std::string, double> q_iless1;
-            std::map<std::string, double> q_iplus1;
-            if (i == 0) {
-                q_iless1 = q[i];
-            } else {
-                q_iless1 = q[i-1];   
-            }
-            if (i == size - 1) {
-                q_iplus1 = q[size - 1];
-            } else {
-                q_iplus1 = q[i+1];   
-            }
-            q_next[i] = get_q_n1(q[i], q_iplus1, q_iless1, dx, dt);
+    // Compute delta x across domain space
+    double dx = get_dx(ncells);
+    
+    double t = 0;
+    while (t < maxtime) {
+        
+        // Declare vector for storing q(n+1) for all i
+        std::vector<std::map<std::string, double>> q_next(ncells);
+        
+        // Compute dt for q[i]
+        double amax = get_amax(q);
+        double dt = get_dt(amax, dx);
+        
+        for (unsigned int i = 0; i < q.size(); i++) {
+            // Return q(n, i+1) and q(n, i-1)
+            std::map<std::string, std::map<std::string, double>> 
+                q_surround = get_q_isurround(q, i);
+            // Compute q(i, n+1)
+            q_next[i] = get_q_n1(q[i], q_surround["iplus1"], q_surround["iless1"], dx, dt);
         }
         t += dt;
         q = q_next;
