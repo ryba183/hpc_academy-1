@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-N=6
-for i in $(seq 3 2 100) $(seq 101 10 1000) $(seq 1001 100 10000); do
- ((e=e%N)); ((e++==0)) && wait
- {
- mid=$(( (i / 2) + 1))
- vmid=$(./euler_equations_commandline -n "${i}" -t 0.15 -d 1 -D 1 -v -2 -V 2 -p 0.4 -P 0.4 | cut -f 2 | sed -n "$mid p")
- echo -e ${mid}"\t"${vmid}
- >&2 echo "${mid}"
-} &
-done; wait
-#./euler_equations_commandline -n 1000 -t 0.15 -d 1 -D 1 -v -2 -V 2 -p 0.4 -P 0.4 | cut -f 2 | sed -n "500 p"
 
+export SHELL=$(type -p bash)
+
+function iterate {
+    ncells=$1
+    mid=$(( (ncells / 2) + 1))
+    # Run algorithm - store time and midpoint in var
+    var=$( TIMEFORMAT="%R"; { time ./euler_equations_commandline -n "${ncells}" -t 0.15 -d 1 -D 1 -v -2 -V 2 -p 0.4 -P 0.4 | cut -f 2 | sed -n "$mid p"; } 2>&1 )
+  
+    velocity=$(echo "${var}" | head -n1)
+    time=$(echo "${var}" | tail -n1)
+    echo -e ${ncells}"\t"${velocity}"\t"${time}
+}
+
+export -f iterate
+
+binrange=( $(seq 101 100 1000) $(seq 1001 1000 10000) $(seq 10001 10000 110000) $(seq 100001 100000 1100000) )
+
+parallel -j 12 iterate ::: "${binrange[@]}"

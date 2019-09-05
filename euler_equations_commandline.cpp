@@ -10,7 +10,7 @@
 #include <fstream>
 #include <map>
 
-double ncells = 1000;
+unsigned int ncells = 1000;
 double maxtime = 0.15;
 double densityL = 1;
 double densityR = 1;
@@ -106,31 +106,31 @@ double get_energy(double pressure, double density,
     return (density * internal_energy) + (0.5*density*velocity*velocity);
 }
 
-double get_velocity(std::map<std::string, double>& q) {
-    return q["momentum"] / q["density"];
+double get_velocity(std::array<double, 3>& q) {
+    return q[1] / q[0];
 }
 
-double get_internal_energy(std::map<std::string, double>& q) {
+double get_internal_energy(std::array<double, 3>& q) {
     double velocity = get_velocity(q);
-    return (q["energy"] / q["density"]) - (0.5 * velocity * velocity);
+    return (q[2] / q[0]) - (0.5 * velocity * velocity);
 }
 
-double get_pressure(std::map<std::string, double>& q, double gamma = 1.4) {;
+double get_pressure(std::array<double, 3>& q, double gamma = 1.4) {;
     double internal_energy = get_internal_energy(q);
-    return (gamma - 1) * (q["density"] * internal_energy);
+    return (gamma - 1) * (q[0] * internal_energy);
 }
 
-double get_dx(double ncells, double domain_start = 0, double domain_end = 1) {
+double get_dx(unsigned int ncells, double domain_start = 0, double domain_end = 1) {
   return (domain_end - domain_start)/ncells;
 }
 
-double speed_of_sound(std::map<std::string, double>& q, double gamma = 1.4) {
+double speed_of_sound(std::array<double, 3>& q, double gamma = 1.4) {
   double pressure = get_pressure(q);
-  double c_squared = (gamma*pressure)/q["density"];            
+  double c_squared = (gamma*pressure)/q[0];            
   return std::abs(sqrt(c_squared));
 }
 
-double get_amax(std::vector<std::map<std::string, double>>& q) {
+double get_amax(std::vector<std::array<double, 3>>& q) {
   int size = q.size();
   double c;
   std::vector<double> all_a;
@@ -146,130 +146,135 @@ double get_dt(double amax, double dx, double CFL = 0.9) {
   return CFL*(dx/amax);
 }
 
-double f_density(std::map<std::string, double>& q) {
+double f_density(std::array<double, 3>& q) {
   double velocity = get_velocity(q);
-  return q["density"] * velocity;
+  return q[0] * velocity;
 }
 
-double f_momentum(std::map<std::string, double>& q) {
+double f_momentum(std::array<double, 3>& q) {
     double velocity = get_velocity(q);
     double pressure = get_pressure(q);
-    return (q["density"]*velocity*velocity) + pressure;
+    return (q[0]*velocity*velocity) + pressure;
 }
 
-double f_energy(std::map<std::string, double>& q) {
+double f_energy(std::array<double, 3>& q) {
   double velocity = get_velocity(q);
   double pressure = get_pressure(q);
-  return (q["energy"] + pressure)*velocity;
+  return (q[2] + pressure)*velocity;
 }
 
-std::map<std::string, double> get_q_ihalf(std::map<std::string, double>& qi , 
-                                          std::map<std::string, double>& q_i1, 
-                                          double dx, double dt) {
+std::array<double, 3> get_q_ihalf(std::array<double, 3>& qi , 
+                                  std::array<double, 3>& q_i1, 
+                                  double dx, double dt) {
                           
     // Declare output vector
-    std::map<std::string, double> q_out;
+    std::array<double, 3> q_out;
     
-    q_out["density"] = (0.5 * (qi["density"] + q_i1["density"])) 
+    q_out[0] = (0.5 * (qi[0] + q_i1[0])) 
                + (0.5 * (dt/dx) * (f_density(qi) - f_density(q_i1)));
-    q_out["momentum"] = (0.5 * (qi["momentum"] + q_i1["momentum"])) 
+    q_out[1] = (0.5 * (qi[1] + q_i1[1])) 
                + (0.5 * (dt/dx) * (f_momentum(qi) - f_momentum(q_i1)));
-    q_out["energy"] = (0.5 * (qi["energy"] + q_i1["energy"])) 
+    q_out[2] = (0.5 * (qi[2] + q_i1[2])) 
                + (0.5 * (dt/dx) * (f_energy(qi) - f_energy(q_i1)));
                
     return q_out;
 }
 
-std::map<std::string, double>  get_flux_RI(std::map<std::string, double>& q) {
+std::array<double, 3>  get_flux_RI(std::array<double, 3>& q) {
     // Declare output vector
-    std::map<std::string, double> flux_RI;
+    std::array<double, 3> flux_RI;
   
-    flux_RI["density"] = f_density(q);
-    flux_RI["momentum"] = f_momentum(q);
-    flux_RI["energy"] = f_energy(q);
+    flux_RI[0] = f_density(q);
+    flux_RI[1] = f_momentum(q);
+    flux_RI[2] = f_energy(q);
     
     return flux_RI;
 }
 
-std::map<std::string, double> get_flux_LF(std::map<std::string, double>& qi , 
-                                          std::map<std::string, double>& q_i1, 
+std::array<double, 3> get_flux_LF(std::array<double, 3>& qi , 
+                                          std::array<double, 3>& q_i1, 
                                           double dx, double dt) {
                           
     // Declare output vector
-    std::map<std::string, double> flux_LF;
+    std::array<double, 3> flux_LF;
     
-    flux_LF["density"] = (0.5 * (f_density(qi) + f_density(q_i1))) 
-                 + (0.5 * (dx/dt) * (qi["density"] - q_i1["density"]));
-    flux_LF["momentum"] = (0.5 * (f_momentum(qi) + f_momentum(q_i1))) 
-                 + (0.5 * (dx/dt) * (qi["momentum"] - q_i1["momentum"]));
-    flux_LF["energy"] = (0.5 * (f_energy(qi) + f_energy(q_i1))) 
-                 + (0.5 * (dx/dt) * (qi["energy"] - q_i1["energy"]));
+    flux_LF[0] = (0.5 * (f_density(qi) + f_density(q_i1))) 
+                 + (0.5 * (dx/dt) * (qi[0] - q_i1[0]));
+    flux_LF[1] = (0.5 * (f_momentum(qi) + f_momentum(q_i1))) 
+                 + (0.5 * (dx/dt) * (qi[1] - q_i1[1]));
+    flux_LF[2] = (0.5 * (f_energy(qi) + f_energy(q_i1))) 
+                 + (0.5 * (dx/dt) * (qi[2] - q_i1[2]));
     
     return flux_LF;
 }
 
-std::map<std::string, double> get_force(std::map<std::string, double>& qi, 
-                                        std::map<std::string, double>& q_i1,
+std::array<double, 3> get_force(std::array<double, 3>& qi, 
+                                        std::array<double, 3>& q_i1,
                                         double dx, double dt) {
                           
-    std::map<std::string, double>  q_ihalf = get_q_ihalf(qi, q_i1, dx, dt);
-    std::map<std::string, double>  flux_RI = get_flux_RI(q_ihalf);
-    std::map<std::string, double>  flux_LF = get_flux_LF(qi, q_i1, dx, dt);
+    std::array<double, 3>  q_ihalf = get_q_ihalf(qi, q_i1, dx, dt);
+    std::array<double, 3>  flux_RI = get_flux_RI(q_ihalf);
+    std::array<double, 3>  flux_LF = get_flux_LF(qi, q_i1, dx, dt);
     
     // Declare output vector
-    std::map<std::string, double> force_flux;
+    std::array<double, 3> force_flux;
     
-    force_flux["density"] = 0.5 * (flux_LF["density"] + flux_RI["density"]);
-    force_flux["momentum"] = 0.5 * (flux_LF["momentum"] + flux_RI["momentum"]);
-    force_flux["energy"] = 0.5 * (flux_LF["energy"] + flux_RI["energy"]);
+    force_flux[0] = 0.5 * (flux_LF[0] + flux_RI[0]);
+    force_flux[1] = 0.5 * (flux_LF[1] + flux_RI[1]);
+    force_flux[2] = 0.5 * (flux_LF[2] + flux_RI[2]);
     
     return force_flux;
 }
 
-std::map<std::string, double> get_q_n1(std::map<std::string, double>& qi, 
-                                       std::map<std::string, double>& q_iplus1,
-                                       std::map<std::string, double>& q_iless1,
+std::array<double, 3> get_q_n1(std::array<double, 3>& qi, 
+                                       std::array<double, 3>& q_iplus1,
+                                       std::array<double, 3>& q_iless1,
                                        double dx, double dt) {
     
-    std::map<std::string, double> force_plus_half = get_force(qi, q_iplus1, dx, dt);
-    std::map<std::string, double> force_less_half = get_force(q_iless1, qi, dx, dt);
+    std::array<double, 3> force_plus_half = get_force(qi, q_iplus1, dx, dt);
+    std::array<double, 3> force_less_half = get_force(q_iless1, qi, dx, dt);
 
     // Declare output vector
-    std::map<std::string, double> q_nplus1;
+    std::array<double, 3> q_nplus1;
     
-    q_nplus1["density"] = qi["density"] + (dt/dx)*(force_less_half["density"] - force_plus_half["density"]);
-    q_nplus1["momentum"] = qi["momentum"] + (dt/dx)*(force_less_half["momentum"] - force_plus_half["momentum"]);
-    q_nplus1["energy"] = qi["energy"] + (dt/dx)*(force_less_half["energy"] - force_plus_half["energy"]);
+    q_nplus1[0] = qi[0] + (dt/dx)*(force_less_half[0] - force_plus_half[0]);
+    q_nplus1[1] = qi[1] + (dt/dx)*(force_less_half[1] - force_plus_half[1]);
+    q_nplus1[2] = qi[2] + (dt/dx)*(force_less_half[2] - force_plus_half[2]);
     
     return q_nplus1;
 }
 
-std::map<std::string, std::map<std::string, double>> get_q_isurround(std::vector<std::map<std::string, double>>& q, int i) {
+std::array<std::array<double, 3>, 2> get_q_isurround(std::vector<std::array<double, 3>>& q, int i) {
+    // Returns q[i-1] and q[i+1] accounting for boundary conditions
+    
     // Declare output map
-    std::map<std::string, std::map<std::string, double>> q_isurround;
+    std::array<std::array<double, 3>, 2> q_isurround;
 
     int size = q.size();
     if (i == 0) {
-        q_isurround["iless1"] = q[i];
+        q_isurround[0] = q[i];
     } else {
-        q_isurround["iless1"] = q[i-1];   
+        q_isurround[0] = q[i-1];   
     }
     if (i == size - 1) {
-        q_isurround["iplus1"] = q[size - 1];
+        q_isurround[1] = q[size - 1];
     } else {
-        q_isurround["iplus1"] = q[i+1];   
+        q_isurround[1] = q[i+1];   
     }
     return q_isurround;
 }
 
-void initiaseData(std::vector<std::map<std::string, double>>& q,
+
+std::vector<std::array<double, 3>> initialiseData(unsigned int ncells,
     double densityL, double velocityL, double pressureL,
     double densityR, double velocityR, double pressureR) {
-  
-    unsigned int size = q.size();
+    
+    // Declare initial data
+    std::vector<std::array<double, 3>> q(ncells);
+    // std::vector<std::array<double, 3>>
     double energy, density, velocity, pressure, momentum;
-    for (unsigned int i = 0; i < size; i++) {
-        if (i < (size/2)) {
+    for (unsigned int i = 0; i < ncells; i++) {
+        if (i < (ncells/2)) {
             density = densityL;
             velocity = velocityL;
             pressure = pressureL;
@@ -281,10 +286,11 @@ void initiaseData(std::vector<std::map<std::string, double>>& q,
         }
         energy = get_energy(pressure, density, velocity);
         momentum = density * velocity;
-        q[i]["density"] = density;
-        q[i]["momentum"] = momentum;
-        q[i]["energy"] = energy;    
+        q[i][0] = density;
+        q[i][1] = momentum;
+        q[i][2] = energy;    
     }
+    return q;
 }
       
 
@@ -301,9 +307,7 @@ int main(int argc, char* argv[]) {
     std::ostream& out = (outPath != "-" ? outFile : std::cout);
     
     // Initialise data
-    std::vector<std::map<std::string, double>> q(ncells);
-    initiaseData(q, densityL, velocityL, pressureL,
-        densityR, velocityR, pressureR);
+    std::vector<std::array<double, 3>> q = initialiseData(ncells, densityL, velocityL, pressureL, densityR, velocityR, pressureR);
     
     // Compute delta x across domain space
     double dx = get_dx(ncells);
@@ -312,7 +316,7 @@ int main(int argc, char* argv[]) {
     while (t < maxtime) {
         
         // Declare vector for storing q(n+1) for all i
-        std::vector<std::map<std::string, double>> q_next(ncells);
+        std::vector<std::array<double, 3>> q_next(ncells);
         
         // Compute dt for q[i]
         double amax = get_amax(q);
@@ -320,10 +324,10 @@ int main(int argc, char* argv[]) {
         
         for (unsigned int i = 0; i < q.size(); i++) {
             // Return q(n, i+1) and q(n, i-1)
-            std::map<std::string, std::map<std::string, double>> 
-                q_surround = get_q_isurround(q, i);
+            // May use std::array<std::array<double, 3>, 2> instead of map to store q_surrond for increased speed!
+            std::array<std::array<double, 3>, 2> q_surround = get_q_isurround(q, i);
             // Compute q(i, n+1)
-            q_next[i] = get_q_n1(q[i], q_surround["iplus1"], q_surround["iless1"], dx, dt);
+            q_next[i] = get_q_n1(q[i], q_surround[1], q_surround[0], dx, dt);
         }
         t += dt;
         q = q_next;
@@ -331,7 +335,7 @@ int main(int argc, char* argv[]) {
     
     int size = q.size();
     for (int i = 0; i < size; i++) {
-        out << q[i]["density"] << "\t" 
+        out << q[i][0] << "\t" 
             << get_velocity(q[i]) << "\t" 
             << get_pressure(q[i]) << "\t" 
             << get_internal_energy(q[i]) << std::endl;
